@@ -6,7 +6,7 @@
 # Builds for GTK+ 2 and no longer supports GTK+ 1.
 # Also works with ming32-make on Windows.
 
-.SUFFIXES: .cxx .c .o .h .a
+.SUFFIXES: .cxx .c .o .h .a .list
 ifdef CLANG
 CXX = clang++ -Wno-deprecated-register
 CC = clang
@@ -31,7 +31,13 @@ RANLIB = ranlib
 endif
 endif
 
+# Enable Position Independent Code except on Windows where it is the default so the flag produces a warning
+ifndef windir
+PICFLAGS = -fPIC
+endif
+
 ifdef windir
+CC = gcc
 DEL = del /q
 COMPLIB=..\bin\scintilla.a
 else
@@ -46,7 +52,7 @@ INCLUDEDIRS=-I ../include -I ../src -I ../lexlib
 ifdef CHECK_DEPRECATED
 DEPRECATED=-DGDK_PIXBUF_DISABLE_DEPRECATED -DGDK_DISABLE_DEPRECATED -DGTK_DISABLE_DEPRECATED -DDISABLE_GDK_FONT
 endif
-CXXBASEFLAGS=-Wall -pedantic -DGTK -DSCI_LEXER $(INCLUDEDIRS) $(DEPRECATED)
+CXXBASEFLAGS=-Wall -pedantic $(PICFLAGS) -DGTK -DSCI_LEXER $(INCLUDEDIRS) $(DEPRECATED)
 
 ifdef NOTHREADS
 THREADFLAGS=-DG_THREADS_IMPL_NONE
@@ -54,8 +60,8 @@ else
 THREADFLAGS=
 endif
 
-ifdef CXX11_REGEX
-REFLAGS=-DCXX11_REGEX
+ifdef NO_CXX11_REGEX
+REFLAGS=-DNO_CXX11_REGEX
 endif
 
 ifdef DEBUG
@@ -69,7 +75,7 @@ CTFLAGS=-DNDEBUG -Os $(CXXBASEFLAGS) $(THREADFLAGS)
 endif
 
 CFLAGS:=$(CTFLAGS)
-CXXTFLAGS:=--std=c++0x $(CTFLAGS) $(REFLAGS)
+CXXTFLAGS:=--std=gnu++0x $(CTFLAGS) $(REFLAGS)
 
 CONFIGFLAGS:=$(shell pkg-config --cflags $(GTKVERSION))
 MARSHALLER=scintilla-marshal.o
@@ -78,6 +84,14 @@ MARSHALLER=scintilla-marshal.o
 	$(CXX) $(CONFIGFLAGS) $(CXXTFLAGS) $(CXXFLAGS) -c $<
 .c.o:
 	$(CC) $(CONFIGFLAGS) $(CFLAGS) -w -c $<
+
+GLIB_GENMARSHAL = glib-genmarshal
+GLIB_GENMARSHAL_FLAGS = --prefix=scintilla_marshal
+
+.list.h:
+	$(GLIB_GENMARSHAL) --header $(GLIB_GENMARSHAL_FLAGS) $< > $@
+.list.c:
+	$(GLIB_GENMARSHAL) --body $(GLIB_GENMARSHAL_FLAGS) $< > $@
 
 LEXOBJS:=$(addsuffix .o,$(basename $(notdir $(wildcard ../lexers/Lex*.cxx))))
 
